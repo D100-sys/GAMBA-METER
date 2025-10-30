@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GambaMeter+ Pixelado</title>
+<style>
+  body {
+    margin:0;
+    font-family: 'Inter', sans-serif;
+    background:#010104;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    transition: background 0.8s ease;
+    color:#fff;
+  }
+
+  .gambaMeterContainer {
+    width: 80%;
+    position: relative;
+    border-radius:12px;
+    padding:10px;
+    margin-bottom:20px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 40px;
+    border-radius: 12px;
+    display:block;
+  }
+
+  .indicator {
+    position: absolute;
+    top:-50px;
+    width: 150px;
+    height: 150px;
+    pointer-events:none;
+    z-index:1;
+  }
+
+  .labels {
+    position:absolute;
+    width:100%;
+    top:50px;
+    display:flex;
+    justify-content:space-between;
+    font-weight:bold;
+    color:#00ff9c;
+    text-shadow: 0 0 8px #00fff0, 0 0 5px #000000;
+    z-index:3;
+    pointer-events:none;
+  }
+
+  input[type=range] {
+    width:80%;
+    display:none;
+  }
+</style>
+</head>
+<body id="body">
+
+<div class="gambaMeterContainer">
+  <canvas id="gambaCanvas"></canvas>
+  <img id="indicator" class="indicator" src="https://static.hoy.es/villanueva/multimedia/202206/08/media/k.JPG">
+  <div class="labels">
+    <div>NO SALGO</div>
+    <div>SÍ SALGO</div>
+  </div>
+</div>
+
+<input type="range" id="positionSlider" min="0" max="100" value="50">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script>
+const canvas = document.getElementById('gambaCanvas');
+const ctx = canvas.getContext('2d');
+const indicator = document.getElementById('indicator');
+const body = document.getElementById('body');
+const slider = document.getElementById('positionSlider');
+
+const correctPassword = "GAMBA 3-ESO";
+let controlActivo = false;
+
+// Ajustar tamaño de canvas
+function resizeCanvas(){
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  drawPixelBar();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Dibujar barra pixelada
+function drawPixelBar(){
+  const w = canvas.width;
+  const h = canvas.height;
+  const pixelSize = 4; // tamaño de “pixel”
+  for(let x=0; x<w; x+=pixelSize){
+    let t = x/w;
+    let color;
+    if(t < 0.5){
+      // rojo a amarillo
+      let f = t/0.5;
+      color = `rgb(${255},${Math.round(255*f)},0)`;
+    } else {
+      // amarillo a verde
+      let f = (t-0.5)/0.5;
+      color = `rgb(${Math.round(255*(1-f))},255,0)`;
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(x,0,pixelSize,h);
+  }
+}
+
+// Posición horizontal
+let posicion = slider.value/100;
+function moveIndicatorHorizontal(value){
+  const barWidth = canvas.width;
+  const pos = Math.min(Math.max(value,0),1) * barWidth;
+  indicator.style.left = `${pos - indicator.offsetWidth/2}px`;
+
+  // Fondo sincronizado
+  const t = value;
+  let r,g,b;
+  if(t<0.5){
+    let f=t/0.5;
+    r=255; g=Math.round(255*f); b=0;
+  } else {
+    let f=(t-0.5)/0.5;
+    r=Math.round(255*(1-f)); g=255; b=0;
+  }
+  body.style.backgroundColor=`rgb(${r},${g},${b})`;
+}
+
+// Rebote vertical constante
+gsap.to(indicator, {
+  y:-30,
+  yoyo:true,
+  repeat:-1,
+  duration:0.5,
+  ease:'power1.out'
+});
+
+// Slider controla horizontal si se activa
+slider.addEventListener('input',()=>{
+  if(controlActivo){
+    posicion = slider.value/100;
+    moveIndicatorHorizontal(posicion);
+  }
+});
+
+// Detectar combinación Ctrl+Shift+G
+document.addEventListener('keydown',(e)=>{
+  if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='g'){
+    const pw = prompt("Introduce la contraseña para activar el control:");
+    if(pw===correctPassword){
+      controlActivo = true;
+      slider.style.display='block';
+      alert("Control activado. Ahora puedes mover la foto horizontalmente con el slider.");
+    } else alert("Contraseña incorrecta.");
+  }
+});
+
+// Inicializar
+moveIndicatorHorizontal(posicion);
+</script>
+</body>
+</html>
