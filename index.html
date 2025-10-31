@@ -1,9 +1,45 @@
+<canvas id="textCanvas" style="position:absolute; top:10px; left:0; width:100%; height:50px; pointer-events:none;"></canvas>
+
+<script>
+const textCanvas = document.getElementById('textCanvas');
+const tctx = textCanvas.getContext('2d');
+
+function resizeTextCanvas(){
+  const ratio = window.devicePixelRatio || 1;
+  textCanvas.width = textCanvas.offsetWidth * ratio;
+  textCanvas.height = textCanvas.offsetHeight * ratio;
+  tctx.setTransform(1,0,0,1,0,0);
+  tctx.scale(ratio, ratio);
+}
+window.addEventListener('resize', resizeTextCanvas);
+resizeTextCanvas();
+
+const colors = ["#ff0000","#ffff00","#00ff00","#00ffff"]; // rojo, amarillo, verde, azul
+let colorIndex = 0;
+
+// Función para dibujar el texto
+function drawTextLoop(){
+  tctx.clearRect(0,0,textCanvas.width,textCanvas.height);
+  tctx.font = "bold 40px monospace"; // fuente pixelada
+  tctx.textAlign = "center";
+  tctx.textBaseline = "middle";
+  tctx.fillStyle = colors[colorIndex];
+  tctx.shadowColor = colors[colorIndex];
+  tctx.shadowBlur = 8;
+  tctx.fillText("GAMBAMETER", textCanvas.width/2 / (window.devicePixelRatio || 1), textCanvas.height/2 / (window.devicePixelRatio || 1));
+  
+  colorIndex = (colorIndex + 1) % colors.length;
+  requestAnimationFrame(()=>setTimeout(drawTextLoop, 500)); // cambia color cada 0.5s
+}
+
+drawTextLoop();
+</script>
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GambaMeter+ Pixelado</title>
+<title>GambaMeter+ Pixelado con Memoria</title>
 <style>
   body {
     margin:0;
@@ -14,50 +50,50 @@
     justify-content:center;
     align-items:center;
     height:100vh;
-    transition: background 0.8s ease;
+    transition: background 0.5s ease;
     color:#fff;
   }
 
   .gambaMeterContainer {
-    width: 80%;
+    width: 90%;
+    max-width: 1000px;
     position: relative;
-    border-radius:12px;
-    padding:10px;
     margin-bottom:20px;
   }
 
   canvas {
     width: 100%;
-    height: 40px;
-    border-radius: 12px;
+    height: 80px; /* Barra más grande */
     display:block;
+    border-radius: 12px;
   }
 
   .indicator {
     position: absolute;
     top:-50px;
-    width: 150px;
-    height: 150px;
+    width: 180px;  
+    height: 180px;
     pointer-events:none;
-    z-index:1;
+    z-index:2;
   }
 
   .labels {
     position:absolute;
     width:100%;
-    top:50px;
+    top:90px;
     display:flex;
     justify-content:space-between;
     font-weight:bold;
     color:#00ff9c;
-    text-shadow: 0 0 8px #00fff0, 0 0 5px #000000;
+    text-shadow: 0 0 12px #00fff0, 0 0 6px #000000;
     z-index:3;
     pointer-events:none;
   }
 
   input[type=range] {
     width:80%;
-    display:none;
+    display:none; /* Slider oculto hasta activar contraseña */
+    margin-top:10px;
   }
 </style>
 </head>
@@ -85,76 +121,87 @@ const slider = document.getElementById('positionSlider');
 const correctPassword = "GAMBA 3-ESO";
 let controlActivo = false;
 
-// Ajustar tamaño de canvas
-function resizeCanvas(){
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  drawPixelBar();
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+// Recuperar posición guardada en localStorage
+let posicion = localStorage.getItem('gambaPos') ? parseFloat(localStorage.getItem('gambaPos')) : slider.value/100;
+slider.value = posicion*100;
 
-// Dibujar barra pixelada
+// Dibujar barra pixelada estilo neón
 function drawPixelBar(){
   const w = canvas.width;
   const h = canvas.height;
-  const pixelSize = 4; // tamaño de “pixel”
+  const pixelSize = 10; // píxeles visibles
+
+  ctx.clearRect(0,0,w,h);
+
   for(let x=0; x<w; x+=pixelSize){
-    let t = x/w;
+    const t = x/w;
     let color;
     if(t < 0.5){
-      // rojo a amarillo
       let f = t/0.5;
-      color = `rgb(${255},${Math.round(255*f)},0)`;
+      color = `rgb(255,${Math.round(255*f)},0)`;
     } else {
-      // amarillo a verde
-      let f = (t-0.5)/0.5;
+      let f=(t-0.5)/0.5;
       color = `rgb(${Math.round(255*(1-f))},255,0)`;
     }
     ctx.fillStyle = color;
+    ctx.shadowColor = color; // efecto neón
+    ctx.shadowBlur = 12;
     ctx.fillRect(x,0,pixelSize,h);
   }
 }
 
-// Posición horizontal
-let posicion = slider.value/100;
+// Ajuste de canvas para pantallas Retina / móviles
+function resizeCanvas(){
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * ratio;
+  canvas.height = canvas.offsetHeight * ratio;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(ratio, ratio);
+  drawPixelBar();
+  moveIndicatorHorizontal(posicion);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Mover indicador horizontal y actualizar fondo
 function moveIndicatorHorizontal(value){
-  const barWidth = canvas.width;
+  const barWidth = canvas.offsetWidth;
   const pos = Math.min(Math.max(value,0),1) * barWidth;
   indicator.style.left = `${pos - indicator.offsetWidth/2}px`;
 
   // Fondo sincronizado
-  const t = value;
   let r,g,b;
-  if(t<0.5){
-    let f=t/0.5;
+  if(value<0.5){
+    let f=value/0.5;
     r=255; g=Math.round(255*f); b=0;
   } else {
-    let f=(t-0.5)/0.5;
+    let f=(value-0.5)/0.5;
     r=Math.round(255*(1-f)); g=255; b=0;
   }
-  body.style.backgroundColor=`rgb(${r},${g},${b})`;
+  body.style.backgroundColor = `rgb(${r},${g},${b})`;
 }
 
 // Rebote vertical constante
 gsap.to(indicator, {
-  y:-30,
+  y:-40,
   yoyo:true,
   repeat:-1,
-  duration:0.5,
+  duration:0.6,
   ease:'power1.out'
 });
 
 // Slider controla horizontal si se activa
-slider.addEventListener('input',()=>{
+slider.addEventListener('input', ()=>{
   if(controlActivo){
     posicion = slider.value/100;
     moveIndicatorHorizontal(posicion);
+    // Guardar posición en localStorage
+    localStorage.setItem('gambaPos', posicion);
   }
 });
 
-// Detectar combinación Ctrl+Shift+G
-document.addEventListener('keydown',(e)=>{
+// Detectar combinación Ctrl+Shift+G para activar slider
+document.addEventListener('keydown', (e)=>{
   if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='g'){
     const pw = prompt("Introduce la contraseña para activar el control:");
     if(pw===correctPassword){
@@ -165,7 +212,7 @@ document.addEventListener('keydown',(e)=>{
   }
 });
 
-// Inicializar
+// Inicializar posición
 moveIndicatorHorizontal(posicion);
 </script>
 </body>
